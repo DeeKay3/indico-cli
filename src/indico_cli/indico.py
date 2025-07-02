@@ -187,6 +187,7 @@ class Indico:
         files = {"source_file": ("import.csv", csvout.getvalue())}
         data = {
             "__file_change_trigger": "added-file",
+            "delimiter": "comma",
         }
         if not moderate:
             data["skip_moderation"] = "y"

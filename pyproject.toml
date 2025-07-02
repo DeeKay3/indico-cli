@@ -17,6 +17,7 @@ dependencies = [
   #"SecretStorage; sys_platform = 'linux'",
   "click",
   "tqdm",
+  "pyyaml",
 ]
 [project.urls]
 homepage = "https://github.com/kewisch/indico-cli"

@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import re
 import sys
 import time
 from collections import defaultdict
@@ -77,7 +78,11 @@ class Indico:
         return r.json()["groups"]
 
     def searchuser(self, email):
-        params = {"email": email, "exact": "true"}
+        token_url = urljoin(self.urlbase, "user/search/token")
+        token_r = self._request("GET", token_url, params={"category_id": "0"})
+        search_token = token_r.json()["token"]
+
+        params = {"email": email, "exact": "true", "token": search_token}
         url = urljoin(self.urlbase, "/user/search/")
         r = self._request("GET", url, params=params)
         return r.json()["users"]
@@ -161,6 +166,10 @@ class Indico:
         rdata = r.json()
         if not rdata["redirect"]:
             raise Exception("Unexpected response")
+
+    def profileupdate(self, user_id, fields):
+        url = urljoin(self.urlbase, f"/user/{user_id}/profile/")
+        self._request_json("PATCH", url, json=fields, expect_code=204)
 
     def regfields(self, conference, regform):
         url = urljoin(

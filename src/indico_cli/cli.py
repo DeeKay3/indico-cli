@@ -24,7 +24,7 @@ from .util import (
 INDICO_ENVIRONMENTS = {
     "prod": "https://events.canonical.com",
     "stage": "https://events.staging.canonical.com",  # staging
-    "local": "http://localhost:8000",  # local
+    "local": "http://127.0.0.1:8000",  # local
 }
 
 
@@ -410,6 +410,99 @@ def regeditcsv(
             tqdm.write(f"{row[emailfield]} FAILED: {e}")
         except Exception as e:
             tqdm.write(f"{row[emailfield]} FAILED: {type(e).__name__}: {e}")
+            if logging.getLogger().isEnabledFor(logging.DEBUG):
+                raise e
+
+
+@main.command()
+@click.argument("user_id", type=int)
+@click.option(
+    "--set",
+    "-s",
+    "setfields",
+    nargs=2,
+    multiple=True,
+    metavar="FIELDNAME VALUE",
+    help="Set a profile field",
+)
+@click.pass_obj
+def profileedit(indico, user_id, setfields):
+    """Edit a user profile
+
+    Pass in the user id and any number of --set FIELDNAME VALUE options.
+    """
+
+    if not setfields:
+        raise click.UsageError("No fields specified, use --set FIELDNAME VALUE")
+
+    data = {key: value for key, value in setfields}
+
+    try:
+        indico.profileupdate(user_id, data)
+        click.echo(f"Profile {user_id} updated successfully")
+    except IndicoCliException as e:
+        click.echo(f"{user_id} FAILED: {e}")
+        sys.exit(1)
+
+
+@main.command()
+@click.argument("csvfile", type=click.File("r"))
+@click.option(
+    "--id-field",
+    default="email",
+    show_default=True,
+    help="Column name in the CSV that contains the user identifier (email)",
+)
+@click.pass_obj
+def profileeditcsv(indico, csvfile, id_field):
+    """Bulk edit user profiles via csv
+
+    The CSV must contain an identifier column (default: 'email'). If the value is an
+    email address the script will look up the corresponding user id automatically.
+    A numeric value is used directly as the user id. All other columns are treated
+    as profile field names and their values.
+    """
+
+    reader = csv.DictReader(csvfile)
+    if id_field not in reader.fieldnames:
+        raise IndicoCliException(
+            f"Missing '{id_field}' column in csv file. "
+            "Use --id-field to specify a different column name."
+        )
+
+    rows = list(reader)
+    field_columns = [f for f in reader.fieldnames if f != id_field]
+
+    # Cache email -> user_id lookups to avoid repeated API calls
+    email_cache = {}
+
+    def resolve_user_id(identifier):
+        if identifier.isdigit():
+            return int(identifier)
+        if identifier not in email_cache:
+            users = indico.searchuser(identifier)
+            if not users:
+                raise IndicoCliException(f"No user found with email {identifier}")
+            email_cache[identifier] = users[0]["id"]
+        return email_cache[identifier]
+
+    for row in tqdm(rows, desc="Updating profiles", unit="users"):
+        identifier = row[id_field]
+        try:
+            user_id = resolve_user_id(identifier)
+        except IndicoCliException as e:
+            tqdm.write(f"{identifier} FAILED: {e}")
+            continue
+        tqdm.write(f"Updating profile for user id {user_id} ({identifier})")
+        try:
+            data = {
+                field: row[field] for field in field_columns if row[field] is not None
+            }
+            indico.profileupdate(user_id, data)
+        except IndicoCliException as e:
+            tqdm.write(f"{identifier} FAILED: {e}")
+        except Exception as e:
+            tqdm.write(f"{identifier} FAILED: {type(e).__name__}: {e}")
             if logging.getLogger().isEnabledFor(logging.DEBUG):
                 raise e
 

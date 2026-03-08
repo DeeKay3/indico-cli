@@ -27,6 +27,8 @@ positional arguments:
                         emaillog       Retrieve the email log
                         groupadduser   Adds a user to a group
                         overlap        Check timetable overlap
+                        profileedit      Edit a user profile
+                        profileeditcsv   Bulk edit user profiles via csv
                         regedit        Edit a user registration
                         regeditcsv     Bulk edit user registration via csv
                         regfields      Get field names for CSV import

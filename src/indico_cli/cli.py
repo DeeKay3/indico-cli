@@ -495,9 +495,12 @@ def profileeditcsv(indico, csvfile, id_field):
             continue
         tqdm.write(f"Updating profile for user id {user_id} ({identifier})")
         try:
-            data = {
-                field: row[field] for field in field_columns if row[field] is not None
-            }
+            data = {}
+            for field in field_columns:
+                value = row[field]
+                if value is None or value == "":
+                    continue
+                data[field] = "" if value == "<CLEAR>" else value
             indico.profileupdate(user_id, data)
         except IndicoCliException as e:
             tqdm.write(f"{identifier} FAILED: {e}")
